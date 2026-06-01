@@ -10,11 +10,13 @@ import cv2
 class YoloDetector(ImageDetector2DBase):
     """YOLOv5 detector for 2D images."""
 
-    def __init__(self, model_path: Path, device: str = "cpu", confthre: float = 0.25, nmsthre: float = 0.45, fp16: bool = False, class_agnostic_nms: bool = False, mask_path: Dict[str, Path] = None):
+    def __init__(self, model_path: Path, device: str = "cpu", confthre: float = 0.25, nmsthre: float = 0.45, fp16: bool = False, class_agnostic_nms: bool = False, mask_path: Dict[str, Path] = None, id_mapping: Dict[int, int] = None):
         """
         Initialize the YOLO detector.
         :param model_path: path to the YOLO model
         :param device: device to run the model on (e.g., 'cpu', 'cuda')
+        :param id_mapping: optional dict mapping original class ids to new class ids,
+            e.g. {0: 4, 1: 4}. Ids not present in the dict are kept unchanged.
         """
         super().__init__()
         self.model = YOLO(str(model_path))
@@ -23,9 +25,20 @@ class YoloDetector(ImageDetector2DBase):
         self.nmsthre = nmsthre
         self.fp16 = fp16
         self.class_agnostic_nms = class_agnostic_nms
+        self.id_mapping = {int(k): int(v) for k, v in id_mapping.items()} if id_mapping is not None else None
         self.mask = {
             key: np.repeat((np.load(item).astype(bool).astype(np.uint8) * 255)[:, :, np.newaxis], 3, axis=2) for key, item in mask_path.items()
         } if mask_path is not None else None
+
+    def map_class_id(self, class_id: int) -> int:
+        """
+        Remap a class id according to ``id_mapping``.
+        :param class_id: the original class id predicted by the model.
+        :return: the remapped class id, or the original id if it is not in ``id_mapping``.
+        """
+        if self.id_mapping is not None:
+            return self.id_mapping.get(class_id, class_id)
+        return class_id
 
     def convert_yolo_result_to_detection_result(self, yolo_output_results, timestamp, sensor_type):
         """
@@ -43,7 +56,7 @@ class YoloDetector(ImageDetector2DBase):
         detected_objects = []
         for i in range(len(bboxes)):
             box = bboxes[i]
-            class_id = int(class_ids[i])
+            class_id = self.map_class_id(int(class_ids[i]))
             score = float(confs[i])
             # calculate the center coordinates of the bounding box
             center_x = float((box[0] + box[2]) / 2)
@@ -78,8 +91,8 @@ class YoloDetector(ImageDetector2DBase):
     
 class Yolo26Detector(YoloDetector):
     """YOLOv2.6 detector for 2D images."""
-    def __init__(self, model_path: Path, device: str = "cpu", confthre: float = 0.25, nmsthre: float = 0.45, fp16: bool = False, class_agnostic_nms: bool = False, mask_path: Dict[str, Path] = None, end2end: bool = False):
-        super().__init__(model_path, device, confthre, nmsthre, fp16, class_agnostic_nms, mask_path)
+    def __init__(self, model_path: Path, device: str = "cpu", confthre: float = 0.25, nmsthre: float = 0.45, fp16: bool = False, class_agnostic_nms: bool = False, mask_path: Dict[str, Path] = None, end2end: bool = False, id_mapping: Dict[int, int] = None):
+        super().__init__(model_path, device, confthre, nmsthre, fp16, class_agnostic_nms, mask_path, id_mapping)
 
         self.end2end = end2end
     def detect(self, image: ndarray, timestamp, sensor_type, sensor_name) -> DetectionResult2D:
@@ -101,8 +114,8 @@ class Yolo26Detector(YoloDetector):
 
 class Yolo26OBBDetector(Yolo26Detector):
     """YOLOv2.6 OBB detector for 2D images."""
-    def __init__(self, model_path: Path, device: str = "cpu", confthre: float = 0.25, nmsthre: float = 0.45, fp16: bool = False, class_agnostic_nms: bool = False, mask_path: Dict[str, Path] = None, end2end: bool = False):
-        super().__init__(model_path, device, confthre, nmsthre, fp16, class_agnostic_nms, mask_path, end2end)
+    def __init__(self, model_path: Path, device: str = "cpu", confthre: float = 0.25, nmsthre: float = 0.45, fp16: bool = False, class_agnostic_nms: bool = False, mask_path: Dict[str, Path] = None, end2end: bool = False, id_mapping: Dict[int, int] = None):
+        super().__init__(model_path, device, confthre, nmsthre, fp16, class_agnostic_nms, mask_path, end2end, id_mapping)
 
     def convert_yolo_result_to_detection_result(self, yolo_output_results, timestamp, sensor_type):
         """
@@ -120,7 +133,7 @@ class Yolo26OBBDetector(Yolo26Detector):
         detected_objects = []
         for i in range(len(bboxes)):
             box = bboxes[i]
-            class_id = int(class_ids[i])
+            class_id = self.map_class_id(int(class_ids[i]))
             score = float(confs[i])
             # calculate the center coordinates of the bounding box
             center = box.mean(axis=0)
@@ -139,8 +152,8 @@ class Yolo26OBBDetector(Yolo26Detector):
 
 class Yolo26OBBPedestrianDetector(Yolo26OBBDetector):
     """YOLOv2.6 OBB pedestrian detector for 2D images."""
-    def __init__(self, model_path: Path, camera_center: Dict[str, List[int]], device: str = "cpu", confthre: float = 0.25, nmsthre: float = 0.45, fp16: bool = False, class_agnostic_nms: bool = False, mask_path: Dict[str, Path] = None, end2end: bool = False):
-        super().__init__(model_path, device, confthre, nmsthre, fp16, class_agnostic_nms, mask_path, end2end)
+    def __init__(self, model_path: Path, camera_center: Dict[str, List[int]], device: str = "cpu", confthre: float = 0.25, nmsthre: float = 0.45, fp16: bool = False, class_agnostic_nms: bool = False, mask_path: Dict[str, Path] = None, end2end: bool = False, id_mapping: Dict[int, int] = None):
+        super().__init__(model_path, device, confthre, nmsthre, fp16, class_agnostic_nms, mask_path, end2end, id_mapping)
 
         self.camera_center = camera_center
     def convert_yolo_result_to_detection_result(self, yolo_output_results, timestamp, sensor_type, sensor_name):
@@ -161,13 +174,16 @@ class Yolo26OBBPedestrianDetector(Yolo26OBBDetector):
             box = bboxes[i]
             score = float(confs[i])
             # calculate the bottom point of the pedestrian
-            center = self.predict_bottom_from_obb_box(box, tuple(self.camera_center[sensor_name]))
+            # center = self.predict_bottom_from_obb_box(box, tuple(self.camera_center[sensor_name]))
+            # center_x = float(center[0])
+            # center_y = float(center[1])
+            center = box.mean(axis=0)
             center_x = float(center[0])
             center_y = float(center[1])
 
             detected_object = DetectedObject2D(
                 box=[float(box[0][0]), float(box[0][1]), float(box[1][0]), float(box[1][1]), float(box[2][0]), float(box[2][1]), float(box[3][0]), float(box[3][1])],
-                class_id=4,
+                class_id=self.map_class_id(4),
                 score=score,
                 pixel_bottom_center=[center_x, center_y],
             )
