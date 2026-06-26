@@ -163,6 +163,43 @@ def load_locmaps(loc_maps_path):
     return result
 
 
+def _ensure_model_weights(model_path: str, config_dir: Path = None) -> Path:
+    """Resolve model_path and download from HuggingFace if the file is missing.
+
+    Downloads from mcity-ai/rfdetr_2xlarge (filename rfdetr_2xlarge_best.pt)
+    when the configured weight file does not exist on disk.
+    """
+    path = Path(model_path)
+    if not path.is_absolute() and config_dir is not None:
+        path = config_dir / path
+    path = path.resolve()
+
+    if path.exists():
+        return path
+
+    try:
+        from huggingface_hub import hf_hub_download
+    except ImportError:
+        raise ImportError(
+            f"Weight file not found at {path} and huggingface_hub is not installed. "
+            "Install it with: pip install huggingface_hub"
+        )
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    print(f"Weight file not found at {path}. Downloading from HuggingFace mcity-ai/rfdetr_2xlarge ...")
+    downloaded = hf_hub_download(
+        repo_id="mcity-ai/rfdetr_2xlarge",
+        filename="rfdetr_2xlarge_best.pt",
+        local_dir=str(path.parent),
+    )
+    # hf_hub_download may save under the HF cache name; rename to expected path if needed.
+    downloaded_path = Path(downloaded)
+    if downloaded_path.resolve() != path:
+        downloaded_path.rename(path)
+    print(f"Downloaded weights to {path}")
+    return path
+
+
 def load_intrinsics(intrinsics_path: str, config_dir: Path = None) -> dict:
     """Load fisheye camera intrinsics from a JSON file.
 
@@ -333,8 +370,8 @@ class RFDETRDetectionNode(DataProcessingNode):
         # RF-DETR model — lazy-loaded registry so rfdetr is not a hard dependency
         # for users who only use YOLO nodes (mirrors Project1 MODEL_REGISTRY pattern)
         model_name = rfdetr_cfg["model_name"].lower()
-        model_path = rfdetr_cfg["model_path"]
         num_classes = rfdetr_cfg["num_classes"]
+        model_path = _ensure_model_weights(rfdetr_cfg["model_path"], config_dir=config_dir)
 
         registry = _get_rfdetr_registry()
         if model_name not in registry:
@@ -346,7 +383,7 @@ class RFDETRDetectionNode(DataProcessingNode):
         self.logger.info(f"Loading RF-DETR model '{model_name}' from {model_path}")
         ModelClass = registry[model_name]
         self.model = ModelClass(
-            pretrain_weights=model_path,
+            pretrain_weights=str(model_path),
             num_classes=num_classes,
             accept_platform_model_license=True,
         )

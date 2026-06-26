@@ -1,15 +1,20 @@
 #!/bin/bash
-# Launch RF-DETR detection pipeline — one gnome-terminal tab per node.
+# RF-DETR detection pipeline launcher.
+# Opens one gnome-terminal tab per node (Redis, Video Source, RF-DETR Detector, 2D Viewer).
+#
 # Usage:
-#   ./launch.sh /path/to/video.mp4          # single file
-#   ./launch.sh /path/to/folder/            # all .mp4 files in folder, played sequentially
-# Edit SENSOR_NAME and DET_CONFIGS below before running.
+#   ./launch.sh /path/to/video.mp4       # single MP4 file
+#   ./launch.sh /path/to/folder/         # all .mp4 files in folder, played sequentially
+#
+# Set MSIGHT_EDGE_DEVICE_NAME and SENSOR_NAME below before running.
+
+REPO_DIR="$(dirname "$(realpath "$0")")"
+VENV="${REPO_DIR}/venv/bin/activate"
+DET_CONFIGS="${REPO_DIR}/examples/rfdetr/rfdetr_config.yaml"
 
 export MSIGHT_EDGE_DEVICE_NAME=mcity_edge
-VENV="/home/dataengine/Mcity/Msight/venv/bin/activate"
-INPUT="${1:-/home/dataengine/Mcity/Msight/SIP_GS_Feeds/}"
 SENSOR_NAME="my_camera"
-DET_CONFIGS="$(dirname "$(realpath "$0")")/rfdetr_config.yaml"
+INPUT="${1:?Usage: $0 /path/to/video.mp4  OR  $0 /path/to/folder/}"
 
 # Clear stale node registrations left by any previous unclean exit.
 # MSight stores node state in the Redis hash MSIGHT:NODES keyed by node name.
