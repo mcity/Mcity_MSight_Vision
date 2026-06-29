@@ -2,9 +2,7 @@
 
 MSight Vision is the camera perception module of the MSight roadside intelligence ecosystem. It provides 2D object detection (YOLO and RF-DETR), fisheye localization, multi-camera fusion, multi-object tracking, and state estimation for intelligent transportation deployments.
 
-It depends on two sibling packages:
-- **MSight Base** — shared data types and trajectory abstractions
-- **MSight Core** — distributed node runtime and Redis pub/sub orchestration
+MSight Base (shared data types) and MSight Core (distributed node runtime) are installed automatically as dependencies.
 
 ---
 
@@ -19,36 +17,29 @@ It depends on two sibling packages:
 
 ## Installation
 
-### 1. Clone all three repositories
+### 1. Clone this repository
 
 ```bash
-git clone https://github.com/michigan-traffic-lab/MSight_base.git
-git clone https://github.com/michigan-traffic-lab/MSight_Core.git
 git clone https://github.com/mcity/Mcity_MSight_Vision.git
+cd Mcity_MSight_Vision
 ```
 
-### 2. Create a virtual environment inside `Mcity_MSight_Vision`
+### 2. Create a virtual environment
 
 ```bash
-cd Mcity_MSight_Vision
 python3 -m venv venv
 source venv/bin/activate
 ```
 
-### 3. Install dependencies
+### 3. Install
 
 ```bash
-# MSight Base
-pip install -e ../MSight_base
-
-# MSight Core
-pip install -e ../MSight_Core
-
-# This package (MSight Vision) with RF-DETR support
-pip install -e ".[rfdetr]"
+pip install -e .
 ```
 
-> **OpenCV note:** `MSight_base` installs `opencv-python-headless`. The viewer node requires GUI support. Fix the conflict after installation:
+This installs MSight Vision and all dependencies, including MSight Base and MSight Core.
+
+> **OpenCV note:** MSight Base pulls in `opencv-python-headless`, which conflicts with the GUI build needed by the viewer node. Fix it after installation:
 > ```bash
 > pip uninstall -y opencv-python-headless
 > pip install --force-reinstall opencv-python

@@ -18,6 +18,7 @@ authors = [
     {name = "Rusheng Zhang", email = "rushengz@umich.edu"},
 ]
 dependencies = [
+    "msight-base","msight-core",
     "numpy",
     "opencv-python",
     "matplotlib",
